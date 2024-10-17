@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Rate</title>
+</head>
+<body>
+    <h1>Set Rate</h1>
+    <form id="rateForm">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required><br><br>
+
+        <label for="rateType">Rate Type:</label>
+        <input type="number" id="rateType" name="rateType" required><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+
+    <p id="responseMessage"></p>
+
+    <script>
+        document.getElementById('rateForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const rateType = parseInt(document.getElementById('rateType').value);
+
+            const apiKey = "trendvi";  // Replace with your valid API key
+
+            const response = await fetch('/api/admin/setRate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Admin': apiKey
+                },
+                body: JSON.stringify({ username: username, rateType: rateType })
+            });
+
+            const result = await response.json();
+            document.getElementById('responseMessage').textContent =
+                response.ok ? "Success: " + JSON.stringify(result) : "Error: " + JSON.stringify(result);
+        });
+    </script>
+</body>
+</html>

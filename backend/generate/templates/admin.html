@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #212121;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden; /* Prevent scrolling if not needed */
+        }
+
+        .admin-container {
+            width: 80%;
+            background-color: #333;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 80vh; /* Ensure the container doesn't exceed the viewport height */
+            overflow-y: auto; /* Enable vertical scrolling if needed */
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* Ensure table columns have a fixed layout */
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+            word-wrap: break-word; /* Prevent long words from overflowing */
+        }
+
+        th {
+            background-color: #444;
+            color: #ffffff; /* Ensure headers are visible */
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 5px;
+            background-color: #555;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 8px 12px;
+            background-color: #008CBA;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+
+        button:hover {
+            background-color: #005f73;
+        }
+
+        .status-button {
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 2px 1px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .status-button.completed {
+            background-color: green;
+        }
+
+        .status-button.pending {
+            background-color: orange;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 5px;
+            height: 20px;
+        }
+
+        .progress-bar {
+            background-color: #4caf50;
+            height: 100%;
+            text-align: center;
+            color: white;
+            line-height: 20px; /* Vertically center text inside progress bar */
+            white-space: nowrap;
+            overflow: hidden;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="admin-container">
+    <h1>Управление ключевыми словами</h1>
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Запрос</th>
+            <th>Ключевые слова</th>
+            <th>Прогресс</th>
+            <th>Статус</th>
+            <th>Действия</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for completion in completions %}
+            <tr>
+                <td>{{ completion.createdate }}</td>
+                <td>{{ completion.query }}</td>
+                <td>
+                    <textarea
+                            id="keywords-{{ completion.completion_id }}"
+                            rows="2"
+                            cols="15"
+                            class="form-control">{{ completion.keywords }}
+                    </textarea>
+                </td>
+                <td>
+                    <div id="progress-container-{{ completion.completion_id }}" class="progress-container">
+                        <div id="progress-bar-{{ completion.completion_id }}" class="progress-bar" style="width: 0%;">
+                            0%
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button class="status-button {% if completion.status %}completed{% else %}pending{% endif %}">
+                        {% if completion.status %}Completed{% else %}Pending{% endif %}
+                    </button>
+                </td>
+                <td>
+                    <button onclick="updateCompletion('{{ completion.completion_id }}', '{{ completion.owner_id }}')">
+                        Отправить на выполнение
+                    </button>
+                    {% if completion.status %}
+                        <button>
+                            <a href="{{ backend_url }}/generate/download/{{ completion.completion_id }}">Скачать</a>
+                        </button>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+    async function updateCompletion(completionId, owner_id) {
+        const keywords = document.getElementById(`keywords-${completionId}`).value;
+        const response = await fetch('update_completion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({completion_id: completionId, keywords: keywords, owner_id: owner_id})
+        });
+        const data = await response.json();
+        if (data.status === "success") {
+            alert('Keywords updated successfully');
+        } else {
+            alert('Failed to update keywords');
+        }
+    }
+
+    async function fetchTaskStatus(completionId) {
+        const response = await fetch(`/api/generate/task_status/${completionId}`);
+        if (response.ok) {
+            const data = await response.json();
+
+            const progressBar = document.getElementById(`progress-bar-${completionId}`);
+            const progressValue = data.current_keyword || 0;
+
+            progressBar.style.width = `${progressValue}%`;
+            progressBar.innerText = `${progressValue}%`;
+        }
+    }
+
+    async function fetchCurrentWords() {
+        {% for completion in completions %}
+            {% if completion.status %}
+                // Update progress to 100% for completed tasks
+                var progressBarCompleted = document.getElementById(`progress-bar-{{ completion.completion_id }}`);
+                var progressValue = 100;
+
+                progressBarCompleted.style.width = `${progressValue}%`;
+                progressBarCompleted.innerText = `${progressValue}%`;
+            {% else %}
+                await fetchTaskStatus('{{ completion.completion_id }}');
+            {% endif %}
+        {% endfor %}
+    }
+
+    // Call this function every few seconds
+    setInterval(fetchCurrentWords, 10000); // Fetch every 5 seconds
+</script>
+</body>
+</html>
